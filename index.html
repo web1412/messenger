@@ -396,33 +396,30 @@ input[type="text"]:focus {
         showNotification('กรุณาใส่รหัสห้อง', 'error');
         return;
     }
+    
+    let roomData = JSON.parse(localStorage.getItem(roomCode));
+    if (!roomData) {
+        showNotification('ไม่พบห้องนี้', 'error');
+        return;
+    }
 
-    // ดึงข้อมูลห้องจาก Firebase
-    firebase.database().ref('rooms/' + roomCode).get().then((snapshot) => {
-        if (snapshot.exists()) {
-            let roomData = snapshot.val();
-            if (roomData.participants.length >= 2) {
-                showNotification('ห้องแชทเต็มแล้ว', 'error');
-                return;
-            }
+    if (roomData.participants.length >= 2) {
+        showNotification('ห้องแชทเต็มแล้ว', 'error');
+        return;
+    }
 
-            if (!currentUserId) {
-                currentUserId = generateUserId();
-            }
+    if (!currentUserId) {
+        currentUserId = generateUserId();
+    }
 
-            if (!roomData.participants.includes(currentUserId)) {
-                roomData.participants.push(currentUserId);
-                firebase.database().ref('rooms/' + roomCode).update(roomData);
-            }
+    if (!roomData.participants.includes(currentUserId)) {
+        roomData.participants.push(currentUserId);
+        localStorage.setItem(roomCode, JSON.stringify(roomData));
+    }
 
-            isOwner = roomData.owner === currentUserId;
-            showChatRoom(roomCode);
-        } else {
-            showNotification('ไม่พบห้องนี้', 'error');
-        }
-    });
+    isOwner = roomData.owner === currentUserId;
+    showChatRoom(roomCode);
 }
-
 
         function showNotification(message, type = 'info') {
     const notification = document.getElementById('notification');
@@ -469,14 +466,29 @@ input[type="text"]:focus {
         }
 
         function sendMessage() {
-            const messageInput = document.getElementById('messageInput');
-            const message = messageInput.value.trim();
-            if (message) {
-                addMessageToChatWindow(message, isOwner ? 'owner' : 'participant', 'text');
-                messageInput.value = '';
-                saveMessage(message, isOwner ? 'owner' : 'participant', 'text');
-            }
-        }
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+    if (message) {
+        const newMessage = {
+            content: message,
+            sender: isOwner ? 'owner' : 'participant',
+            type: 'text',
+            timestamp: Date.now()
+        };
+
+        // บันทึกข้อความลงใน Firebase
+        firebase.database().ref('rooms/' + currentRoomCode + '/messages').push(newMessage);
+        messageInput.value = '';
+    }
+}
+
+function loadMessages() {
+    firebase.database().ref('rooms/' + currentRoomCode + '/messages').on('child_added', (snapshot) => {
+        const message = snapshot.val();
+        addMessageToChatWindow(message.content, message.sender, message.type);
+    });
+}
+
 
         function sendImage(event) {
             const file = event.target.files[0];
