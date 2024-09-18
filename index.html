@@ -438,20 +438,25 @@ input[type="text"]:focus {
     }, 3000);
 }
 
-        function createRoom() {
-            const newRoomCode = generateRoomCode();
-            if (!currentUserId) {
-                currentUserId = generateUserId();
-            }
-            const roomData = {
-                owner: currentUserId,
-                participants: [currentUserId],
-                messages: []
-            };
-            localStorage.setItem(newRoomCode, JSON.stringify(roomData));
-            isOwner = true;
-            showChatRoom(newRoomCode);
-        }
+function createRoom() {
+    const newRoomCode = generateRoomCode();
+    if (!currentUserId) {
+        currentUserId = generateUserId();
+    }
+    const roomData = {
+        owner: currentUserId,
+        participants: [currentUserId],
+        messages: []
+    };
+
+    // บันทึกข้อมูลห้องลงใน Firebase
+    firebase.database().ref('rooms/' + newRoomCode).set(roomData)
+    .then(() => {
+        isOwner = true;
+        showChatRoom(newRoomCode);
+    });
+}
+
 
         function deleteRoom() {
     localStorage.removeItem(currentRoomCode);
