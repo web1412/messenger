@@ -6,9 +6,6 @@
     <title>ระบบห้องแชท</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js"></script>
-
     <style>
       .container {
     display: flex;
@@ -399,30 +396,33 @@ input[type="text"]:focus {
         showNotification('กรุณาใส่รหัสห้อง', 'error');
         return;
     }
-    
-    let roomData = JSON.parse(localStorage.getItem(roomCode));
-    if (!roomData) {
-        showNotification('ไม่พบห้องนี้', 'error');
-        return;
-    }
 
-    if (roomData.participants.length >= 2) {
-        showNotification('ห้องแชทเต็มแล้ว', 'error');
-        return;
-    }
+    // ดึงข้อมูลห้องจาก Firebase
+    firebase.database().ref('rooms/' + roomCode).get().then((snapshot) => {
+        if (snapshot.exists()) {
+            let roomData = snapshot.val();
+            if (roomData.participants.length >= 2) {
+                showNotification('ห้องแชทเต็มแล้ว', 'error');
+                return;
+            }
 
-    if (!currentUserId) {
-        currentUserId = generateUserId();
-    }
+            if (!currentUserId) {
+                currentUserId = generateUserId();
+            }
 
-    if (!roomData.participants.includes(currentUserId)) {
-        roomData.participants.push(currentUserId);
-        localStorage.setItem(roomCode, JSON.stringify(roomData));
-    }
+            if (!roomData.participants.includes(currentUserId)) {
+                roomData.participants.push(currentUserId);
+                firebase.database().ref('rooms/' + roomCode).update(roomData);
+            }
 
-    isOwner = roomData.owner === currentUserId;
-    showChatRoom(roomCode);
+            isOwner = roomData.owner === currentUserId;
+            showChatRoom(roomCode);
+        } else {
+            showNotification('ไม่พบห้องนี้', 'error');
+        }
+    });
 }
+
 
         function showNotification(message, type = 'info') {
     const notification = document.getElementById('notification');
@@ -438,25 +438,20 @@ input[type="text"]:focus {
     }, 3000);
 }
 
-function createRoom() {
-    const newRoomCode = generateRoomCode();
-    if (!currentUserId) {
-        currentUserId = generateUserId();
-    }
-    const roomData = {
-        owner: currentUserId,
-        participants: [currentUserId],
-        messages: []
-    };
-
-    // บันทึกข้อมูลห้องลงใน Firebase
-    firebase.database().ref('rooms/' + newRoomCode).set(roomData)
-    .then(() => {
-        isOwner = true;
-        showChatRoom(newRoomCode);
-    });
-}
-
+        function createRoom() {
+            const newRoomCode = generateRoomCode();
+            if (!currentUserId) {
+                currentUserId = generateUserId();
+            }
+            const roomData = {
+                owner: currentUserId,
+                participants: [currentUserId],
+                messages: []
+            };
+            localStorage.setItem(newRoomCode, JSON.stringify(roomData));
+            isOwner = true;
+            showChatRoom(newRoomCode);
+        }
 
         function deleteRoom() {
     localStorage.removeItem(currentRoomCode);
