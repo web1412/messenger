@@ -1,0 +1,152 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Camera, Link, Check, X } from "lucide-react";
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+const ChatApp = () => {
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [roomId, setRoomId] = useState('');
+  const [isCopied, setIsCopied] = useState(false);
+  const [isOwner, setIsOwner] = useState(true);
+  const [isRoomClosed, setIsRoomClosed] = useState(false);
+  const fileInputRef = useRef(null);
+  const scrollAreaRef = useRef(null);
+
+  useEffect(() => {
+    generateNewRoomId();
+  }, []);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const generateNewRoomId = () => {
+    setRoomId(Math.random().toString(36).substring(2, 8));
+  };
+
+  const handleSendMessage = () => {
+    if (inputMessage.trim() !== '' && !isRoomClosed) {
+      setMessages([...messages, { type: 'text', content: inputMessage, sender: 'user' }]);
+      setInputMessage('');
+    }
+  };
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && !isRoomClosed) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setMessages([...messages, { type: 'image', content: e.target.result, sender: 'user' }]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
+
+  const copyRoomLink = () => {
+    const roomLink = `${window.location.origin}/chat/${roomId}`;
+    navigator.clipboard.writeText(roomLink).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  };
+
+  const closeRoom = () => {
+    if (isOwner && !isRoomClosed) {
+      setIsRoomClosed(true);
+      setMessages([...messages, { type: 'text', content: 'ห้องแชทถูกปิดแล้ว', sender: 'system' }]);
+      generateNewRoomId();
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader className="text-lg font-bold flex justify-between items-center">
+        <span>แอพแชท</span>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={copyRoomLink}
+            className="flex items-center"
+            disabled={isRoomClosed}
+          >
+            {isCopied ? <Check className="h-4 w-4 mr-2" /> : <Link className="h-4 w-4 mr-2" />}
+            {isCopied ? 'คัดลอกแล้ว' : 'คัดลอกลิงค์ห้อง'}
+          </Button>
+          {isOwner && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={closeRoom}
+              className="flex items-center"
+              disabled={isRoomClosed}
+            >
+              <X className="h-4 w-4 mr-2" />
+              ปิดห้องแชท
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Alert className="mb-4">
+          <AlertDescription>
+            รหัสห้องแชท: {roomId}
+            {isRoomClosed && <span className="ml-2 text-red-500">(ห้องถูกปิดแล้ว)</span>}
+          </AlertDescription>
+        </Alert>
+        <ScrollArea className="h-[300px] w-full pr-4" ref={scrollAreaRef}>
+          {messages.map((message, index) => (
+            <div key={index} className={`mb-2 ${message.sender === 'user' ? 'text-right' : message.sender === 'system' ? 'text-center' : 'text-left'}`}>
+              {message.type === 'text' ? (
+                <span className={`inline-block p-2 rounded-lg ${
+                  message.sender === 'user' ? 'bg-blue-500 text-white' : 
+                  message.sender === 'system' ? 'bg-gray-300' : 'bg-gray-200'
+                }`}>
+                  {message.content}
+                </span>
+              ) : (
+                <img src={message.content} alt="Uploaded" className="max-w-[200px] rounded-lg" />
+              )}
+            </div>
+          ))}
+        </ScrollArea>
+      </CardContent>
+      <CardFooter>
+        <div className="flex w-full space-x-2">
+          <Input
+            type="text"
+            placeholder="พิมพ์ข้อความ..."
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            disabled={isRoomClosed}
+          />
+          <Button onClick={handleSendMessage} disabled={isRoomClosed}>ส่ง</Button>
+          <Button onClick={triggerFileInput} variant="outline" disabled={isRoomClosed}>
+            <Camera className="h-4 w-4" />
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+            accept="image/*"
+            style={{ display: 'none' }}
+            disabled={isRoomClosed}
+          />
+        </div>
+      </CardFooter>
+    </Card>
+  );
+};
+
+export default ChatApp;
